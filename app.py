@@ -82,10 +82,15 @@ if st.button("最適構成を計算"):
                 used_agents.add(agent)
 
                 try:
-                    score = float(df.loc[agent, player])
-                except KeyError:
+                    value = df.loc[agent, player]
+                    if isinstance(value, pd.Series):
+                        score = float(value.values[0])
+                    else:
+                        score = float(value)
+                except Exception:
                     valid = False
                     break
+
 
                 assignment.append((player, f"Role {i+1}", agent, score))
                 total_score += score
