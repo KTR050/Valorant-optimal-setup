@@ -18,7 +18,7 @@ map_file_dict = {
 
 selected_map = st.selectbox("マップを選択してください", list(map_file_dict.keys()))
 
-# フォルダ内のCSVファイルパスを構築
+# CSVファイルパスの構築
 csv_file = os.path.join("マップ別データ", map_file_dict[selected_map])
 
 # CSV読み込み
@@ -39,15 +39,14 @@ role_agents = {
 }
 all_agents = sorted(set(itertools.chain.from_iterable(role_agents.values())))
 
-# プレイヤーを1つのマルチセレクトから5人選ぶ
+# プレイヤーを選択（重複不可、5人）
 selected_players = st.multiselect("メンバーを5人選択してください（重複不可）", player_options, max_selections=5)
 
 if len(selected_players) != 5:
     st.warning("ちょうど5人のプレイヤーを選んでください。")
     st.stop()
 
-
-# 各ロールのエージェント選択（multiselect）
+# 各ロールのエージェント選択
 role1_agents = st.multiselect("ロール1（デュエリスト）", role_agents['デュエリスト'], key="r1")
 role2_agents = st.multiselect("ロール2（イニシエーター）", role_agents['イニシエーター'], key="r2")
 role3_agents = st.multiselect("ロール3（コントローラー）", role_agents['コントローラー'], key="r3")
@@ -62,11 +61,11 @@ if st.button("最適構成を計算"):
 
     results = []
 
-    # ロールの全組み合わせを生成
+    # ロールの組み合わせを全探索
     all_role_combinations = list(itertools.product(role1_agents, role2_agents, role3_agents, role4_agents, role5_agents))
 
     for roles in all_role_combinations:
-        for perm in itertools.permutations(members):  # メンバーの順列
+        for perm in itertools.permutations(selected_players):  # 修正：selected_playersを使用
             used_agents = set()
             assignment = []
             total_score = 0
