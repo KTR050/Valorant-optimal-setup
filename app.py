@@ -39,17 +39,13 @@ role_agents = {
 }
 all_agents = sorted(set(itertools.chain.from_iterable(role_agents.values())))
 
-# プレイヤー選択（重複不可）
-members = []
-selected_players = []
-for i in range(5):
-    # すでに選択したプレイヤーを除外
-    available_players = [p for p in player_options if p not in selected_players]
-    
-    # プレイヤーを選択
-    player = st.selectbox(f"メンバー {i+1}", available_players, key=f"player{i}")
-    members.append(player)
-    selected_players.append(player)
+# プレイヤーを1つのマルチセレクトから5人選ぶ
+selected_players = st.multiselect("メンバーを5人選択してください（重複不可）", player_options, max_selections=5)
+
+if len(selected_players) != 5:
+    st.warning("ちょうど5人のプレイヤーを選んでください。")
+    st.stop()
+
 
 # 各ロールのエージェント選択（multiselect）
 role1_agents = st.multiselect("ロール1（デュエリスト）", role_agents['デュエリスト'], key="r1")
