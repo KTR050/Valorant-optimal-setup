@@ -1,61 +1,36 @@
 import streamlit as st
 import pandas as pd
 import itertools
-import gspread
-from gspread_dataframe import get_as_dataframe
-from oauth2client.service_account import ServiceAccountCredentials
+import os
 
-# ------------------------
-# Google Sheets 認証
-# ------------------------
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-client = gspread.authorize(creds)
-
-# スプレッドシートID（固定）
-spreadsheet_id = "1obAh28HKGfxdN5q7LjqTtSassDpYelBtG-oiEYp1YAY"
-
-# ------------------------
-# UI - タイトルとマップ選択
-# ------------------------
 st.title("VALORANT 最適構成計算アプリ")
 
-map_list = ["アイスボックス", "アセント", "サンセット", "スプリット", "パール", "ヘイブン", "ロータス"]
-selected_map = st.selectbox("マップを選択してください", map_list)
+# マップ選択
+map_file_dict = {
+    "アイスボックス": "アイスボックス - シート1.csv",
+    "アセント": "アセント - シート1.csv",
+    "サンセット": "サンセット - シート1.csv",
+    "スプリット": "スプリット - シート1.csv",
+    "パール": "パール - シート1.csv",
+    "ヘイブン": "ヘイブン - シート1.csv",
+    "ロータス": "ロータス - シート1.csv"
+}
 
-# ------------------------
-# A1セルにマップ名を入力
-# ------------------------
+selected_map = st.selectbox("マップを選択してください", list(map_file_dict.keys()))
+
+# CSVファイルパスの構築
+csv_file = os.path.join("マップ別データ", map_file_dict[selected_map])
+
+# CSV読み込み
 try:
-    sheet_agent_data = client.open_by_key(spreadsheet_id).worksheet("program")
-    sheet_agent_data.update_acell("A1", selected_map)
-except Exception as e:
-    st.error(f"programのA1更新に失敗しました: {e}")
+    df = pd.read_csv(csv_file, index_col=0)
+except FileNotFoundError:
+    st.error(f"{csv_file} が見つかりません。'マップ別データ' フォルダが存在し、CSVがその中にあることを確認してください。")
     st.stop()
 
-# ------------------------
-# 「プログラム用」シートからデータ取得
-# ------------------------
-try:
-    sheet_program = client.open_by_key(spreadsheet_id).worksheet("program")
-    df = get_as_dataframe(sheet_program, index_col=0).dropna(how="all")
-except Exception as e:
-    st.error(f"programシートの読み込みに失敗しました: {e}")
-    st.stop()
-
-# ------------------------
-# プレイヤー選択
-# ------------------------
 player_options = df.columns.tolist()
-selected_players = st.multiselect("メンバーを5人選択してください（重複不可）", player_options, max_selections=5)
 
-if len(selected_players) != 5:
-    st.warning("ちょうど5人のプレイヤーを選んでください。")
-    st.stop()
-
-# ------------------------
-# ロール別エージェント定義と選択
-# ------------------------
+# ロールごとのエージェント定義
 role_agents = {
     'デュエリスト': ['ジェット', 'レイズ', 'フェニックス', 'レイナ', 'ヨル', 'ネオン', 'アイソ', 'ウェイレイ'],
     'イニシエーター': ['ソーヴァ', 'フェイド', 'ゲッコー', 'スカイ', 'テホ', 'KAY/O', 'ブリーチ'],
@@ -64,25 +39,33 @@ role_agents = {
 }
 all_agents = sorted(set(itertools.chain.from_iterable(role_agents.values())))
 
+# プレイヤーを選択（重複不可、5人）
+selected_players = st.multiselect("メンバーを5人選択してください（重複不可）", player_options, max_selections=5)
+
+if len(selected_players) != 5:
+    st.warning("ちょうど5人のプレイヤーを選んでください。")
+    st.stop()
+
+# 各ロールのエージェント選択
 role1_agents = st.multiselect("ロール1（デュエリスト）", role_agents['デュエリスト'], key="r1")
 role2_agents = st.multiselect("ロール2（イニシエーター）", role_agents['イニシエーター'], key="r2")
 role3_agents = st.multiselect("ロール3（コントローラー）", role_agents['コントローラー'], key="r3")
 role4_agents = st.multiselect("ロール4（センチネル）", role_agents['センチネル'], key="r4")
 role5_agents = st.multiselect("ロール5（自由枠）", all_agents, key="r5")
 
-# ------------------------
-# 最適構成の計算
-# ------------------------
 if st.button("最適構成を計算"):
+    # 入力チェック
     if not all([role1_agents, role2_agents, role3_agents, role4_agents, role5_agents]):
         st.warning("すべてのロールに対して少なくとも1つ以上のエージェントを選択してください。")
         st.stop()
 
     results = []
+
+    # ロールの組み合わせを全探索
     all_role_combinations = list(itertools.product(role1_agents, role2_agents, role3_agents, role4_agents, role5_agents))
 
     for roles in all_role_combinations:
-        for perm in itertools.permutations(selected_players):
+        for perm in itertools.permutations(selected_players):  # 修正：selected_playersを使用
             used_agents = set()
             assignment = []
             total_score = 0
@@ -100,10 +83,14 @@ if st.button("最適構成を計算"):
 
                 try:
                     value = df.loc[agent, player]
-                    score = float(value)
+                    if isinstance(value, pd.Series):
+                        score = float(value.values[0])
+                    else:
+                        score = float(value)
                 except Exception:
                     valid = False
                     break
+
 
                 assignment.append((player, f"Role {i+1}", agent, score))
                 total_score += score
