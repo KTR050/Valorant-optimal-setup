@@ -27,20 +27,20 @@ selected_map = st.selectbox("マップを選択してください", map_list)
 # A1セルにマップ名を入力
 # ------------------------
 try:
-    sheet_agent_data = client.open_by_key(spreadsheet_id).worksheet("プログラム用")
+    sheet_agent_data = client.open_by_key(spreadsheet_id).worksheet("program")
     sheet_agent_data.update_acell("A1", selected_map)
 except Exception as e:
-    st.error(f"プログラム用のA1更新に失敗しました: {e}")
+    st.error(f"programのA1更新に失敗しました: {e}")
     st.stop()
 
 # ------------------------
 # 「プログラム用」シートからデータ取得
 # ------------------------
 try:
-    sheet_program = client.open_by_key(spreadsheet_id).worksheet("プログラム用")
+    sheet_program = client.open_by_key(spreadsheet_id).worksheet("program")
     df = get_as_dataframe(sheet_program, index_col=0).dropna(how="all")
 except Exception as e:
-    st.error(f"プログラム用シートの読み込みに失敗しました: {e}")
+    st.error(f"programシートの読み込みに失敗しました: {e}")
     st.stop()
 
 # ------------------------
