@@ -1,31 +1,43 @@
 import streamlit as st
 import pandas as pd
 import itertools
-import os
+import json
+from oauth2client.service_account import ServiceAccountCredentials
+import gspread
 
+# タイトル
 st.title("VALORANT 最適構成計算アプリ")
 
+# Google Sheets API 認証
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+client = gspread.authorize(creds)
+
+# スプレッドシートの設定
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1obAh28HKGfxdN5q7LjqTtSassDpYelBtG-oiEYp1YAY/edit#gid=1978610552"
+spreadsheet = client.open_by_url(SPREADSHEET_URL)
+
 # マップ選択
-map_file_dict = {
-    "アイスボックス": "アイスボックス - シート1.csv",
-    "アセント": "アセント - シート1.csv",
-    "サンセット": "サンセット - シート1.csv",
-    "スプリット": "スプリット - シート1.csv",
-    "パール": "パール - シート1.csv",
-    "ヘイブン": "ヘイブン - シート1.csv",
-    "ロータス": "ロータス - シート1.csv"
-}
+map_options = ["アイスボックス", "アセント", "サンセット", "スプリット", "パール", "ヘイブン", "ロータス"]
+selected_map = st.selectbox("マップを選択してください", map_options)
 
-selected_map = st.selectbox("マップを選択してください", list(map_file_dict.keys()))
-
-# CSVファイルパスの構築
-csv_file = os.path.join("マップ別データ", map_file_dict[selected_map])
-
-# CSV読み込み
+# 「プログラム用」シートの A1 セルにマップ名を書き込む
 try:
-    df = pd.read_csv(csv_file, index_col=0)
-except FileNotFoundError:
-    st.error(f"{csv_file} が見つかりません。'マップ別データ' フォルダが存在し、CSVがその中にあることを確認してください。")
+    agent_data_sheet = spreadsheet.worksheet("プログラム用")
+    agent_data_sheet.update_acell("A1", selected_map)
+except Exception as e:
+    st.error(f"エージェントデータシートの更新中にエラーが発生しました: {e}")
+    st.stop()
+
+# 「プログラム用」シートからデータを読み込む
+try:
+    program_sheet = spreadsheet.worksheet("プログラム用")
+    data = program_sheet.get_all_values()
+    df = pd.DataFrame(data[1:], columns=data[0])
+    df.set_index(df.columns[0], inplace=True)
+except Exception as e:
+    st.error(f"プログラム用シートの読み込み中にエラーが発生しました: {e}")
     st.stop()
 
 player_options = df.columns.tolist()
@@ -65,7 +77,7 @@ if st.button("最適構成を計算"):
     all_role_combinations = list(itertools.product(role1_agents, role2_agents, role3_agents, role4_agents, role5_agents))
 
     for roles in all_role_combinations:
-        for perm in itertools.permutations(selected_players):  # 修正：selected_playersを使用
+        for perm in itertools.permutations(selected_players):
             used_agents = set()
             assignment = []
             total_score = 0
@@ -90,7 +102,6 @@ if st.button("最適構成を計算"):
                 except Exception:
                     valid = False
                     break
-
 
                 assignment.append((player, f"Role {i+1}", agent, score))
                 total_score += score
