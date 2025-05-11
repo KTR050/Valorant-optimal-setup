@@ -30,7 +30,7 @@ try:
     sheet_agent_data = client.open_by_key(spreadsheet_id).worksheet("プログラム用")
     sheet_agent_data.update_acell("A1", selected_map)
 except Exception as e:
-    st.error(f"エージェントデータのA1更新に失敗しました: {e}")
+    st.error(f"プログラム用のA1更新に失敗しました: {e}")
     st.stop()
 
 # ------------------------
